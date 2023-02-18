@@ -79,14 +79,14 @@ unsigned long long distributionBorders (int length, int commRank) {
 	int inverseRank = commSize - commRank - 1;
 
 	int countHeaps = heapCounts(length);
-	printf("heaps = %d, length = %d\n", countHeaps, length);
+	//printf("heaps = %d, length = %d\n", countHeaps, length);
 	unsigned long long borders = 0;
 	
 	if (countHeaps < commSize) {
 		unsigned long long left = (length * inverseRank) / commSize;
 		borders |= left << 32;
 		borders |= (length * (inverseRank + 1)) / commSize;
-		printf("rank = %d; left = %lu, right = %lu\n", commRank, LEFT_BORDER(borders), RIGHT_BORDER(borders));
+		//printf("rank = %d; left = %lu, right = %lu\n", commRank, LEFT_BORDER(borders), RIGHT_BORDER(borders));
 		return borders;
 	}
 
@@ -94,10 +94,10 @@ unsigned long long distributionBorders (int length, int commRank) {
 		rightHeap = (countHeaps * (inverseRank + 1)) / commSize;
 
 	unsigned long long left = getIndexBorderFromHeap (leftHeap, length);
-	printf("left = %lu\n", left);
+	//printf("left = %lu\n", left);
 	borders |= left << 32;
 	borders |= getIndexBorderFromHeap (rightHeap, length);
-	printf("rank = %d; left = %lu, right = %lu\n", commRank, LEFT_BORDER(borders), RIGHT_BORDER(borders));
+	//printf("rank = %d; left = %lu, right = %lu\n", commRank, LEFT_BORDER(borders), RIGHT_BORDER(borders));
 
 	return borders;
 }
@@ -127,7 +127,7 @@ void countE (int argc, char *argv[], mpf_t result) {
 		mpz_add (sum, sum, prod);
 	}
 
-	gmp_printf("rank %d; prod = %Zd; sum = %Zd\n", commRank, prod, sum);
+	//gmp_printf("rank %d; prod = %Zd; sum = %Zd\n", commRank, prod, sum);
 	
 	mpz_t fact; mpz_init(fact);
 
@@ -163,7 +163,7 @@ void countE (int argc, char *argv[], mpf_t result) {
 
 	MPI_Barrier(MPI_COMM_WORLD);
 	
-	gmp_printf("rank %d; fact = %Zd\n", commRank, fact);
+	//gmp_printf("rank %d; fact = %Zd\n", commRank, fact);
 	
 	if (commRank) {
 		size_t szSum = mpz_sizeinbase(sum, 10);
@@ -212,8 +212,8 @@ void countE (int argc, char *argv[], mpf_t result) {
 		MPI_Recv(buf, szProd, MPI_CHAR, commSize - 1, 0, MPI_COMM_WORLD, &status);
 		
 		gmp_sscanf(buf, "%Zd", &prod);
-		mpf_t factorial;
-		mpf_set_prec(factorial, 1000);
+		mpf_t factorial; mpf_init(factorial);
+		mpf_set_prec(factorial, 10000);
 		mpf_set_z(factorial, prod);
 
 		free(buf);
@@ -222,9 +222,9 @@ void countE (int argc, char *argv[], mpf_t result) {
 	
 		mpz_add_ui(sum, sum, 1);
 		mpf_set_z(result, sum);
-		mpf_set_prec(result, 1000);
+		mpf_set_prec(result, 10000);
 
-		gmp_printf("rank = %d, sum = %Zd\n fact = %Ff\n", commRank, sum, factorial);
+		//gmp_printf("rank = %d, sum = %Zd\n fact = %Ff\n", commRank, sum, factorial);
 		
 		mpf_div (result, result, factorial);
 
