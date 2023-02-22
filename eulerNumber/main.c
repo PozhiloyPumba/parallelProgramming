@@ -21,5 +21,6 @@ int main(int argc, char** argv) {
 	if (!rank)
 		gmp_printf("e = %.*Ff\n", atoll(argv[1]), ans);
 
+	mpf_clear(ans);
 	MPI_Finalize();
 }

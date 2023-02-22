@@ -65,7 +65,9 @@ unsigned getIndexBorderFromHeap (int heapNumber, int length) {
 
 	while (numOfBorder < delimeterSizeMinusOne && heapCounts[++numOfBorder] < heapNumber) 
 		;
-	unsigned num = (unsigned)(borders[numOfBorder] + (heapNumber - heapCounts[numOfBorder]) * heapSizes[numOfBorder - 1]);
+	//printf("borderindex = %d\n", numOfBorder);
+	int leftNumBorder = numOfBorder ? numOfBorder - 1: 0;
+	unsigned num = (unsigned)(borders[numOfBorder] + (heapNumber - heapCounts[numOfBorder]) * heapSizes[leftNumBorder]);
 
 	return length < num ? (unsigned)(length) : num;
 }
@@ -96,7 +98,7 @@ unsigned long long distributionBorders (int length, int commRank) {
 	//printf("left = %lu\n", left);
 	borders |= left << 32;
 	borders |= getIndexBorderFromHeap (rightHeap, length);
-	//printf("rank = %d; left = %lu, right = %lu\n", commRank, LEFT_BORDER(borders), RIGHT_BORDER(borders));
+	printf("rank = %d; left = %lu, right = %lu\n", commRank, LEFT_BORDER(borders), RIGHT_BORDER(borders));
 
 	return borders;
 }
@@ -122,24 +124,26 @@ void countE (int argc, char *argv[], mpf_t result) {
 	mpz_init(sum);
 	mpz_init_set_ui (prod, 1);
 
-	for(unsigned i = RIGHT_BORDER(borders), end = LEFT_BORDER(borders); i > end; --i) {
+	for(unsigned i = RIGHT_BORDER(borders), end = LEFT_BORDER(borders); i > end;) {
 		#ifdef STUPID
 		mpz_mul_ui (prod, prod, i);
 		mpz_add (sum, sum, prod);
+		--i;
 		#else
 		unsigned long long tmpProd = 1, tmpSum = 0;
 		while (i > end && ULLONG_MAX / i > tmpProd) {
 			tmpProd *= i--;
 			tmpSum += tmpProd;
 		}
-		++i;
 		
-		mpz_t longTmpSum, longTmpProd; mpz_init(longTmpSum); mpz_init(longTmpProd);
+		mpz_t longTmpSum, longTmpProd; mpz_inits(longTmpSum, longTmpProd, NULL);
 		mpz_set_ull(longTmpSum, tmpSum);
 		mpz_set_ull(longTmpProd, tmpProd);
 
 		mpz_addmul(sum, prod, longTmpSum);
 		mpz_mul(prod, prod, longTmpProd);
+
+		mpz_clears(longTmpSum, longTmpProd, NULL);
 		#endif
 	}
 
@@ -238,5 +242,7 @@ void countE (int argc, char *argv[], mpf_t result) {
 		mpf_div (result, result, factorial);
 
 		// gmp_printf("ans = %.571Ff\n", result);
+		mpf_clear(factorial);
 	}
+	mpz_clears(sum, prod, fact, NULL);
 }
