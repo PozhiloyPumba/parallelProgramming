@@ -72,26 +72,25 @@ unsigned getIndexBorderFromHeap (int heapNumber, int length) {
 
 #define LEFT_BORDER(x) ((x) >> 32)
 #define RIGHT_BORDER(x) ((x) & 0x00000000FFFFFFFF) 
-// this experimental values don't try understand this move
+// this experimental values don't try to understand this move
 unsigned long long distributionBorders (int length, int commRank) {
 	int commSize;
-    MPI_Comm_size(MPI_COMM_WORLD, &commSize);
-	int inverseRank = commSize - commRank - 1;
+	MPI_Comm_size(MPI_COMM_WORLD, &commSize);
 
 	int countHeaps = heapCounts(length);
 	//printf("heaps = %d, length = %d\n", countHeaps, length);
 	unsigned long long borders = 0;
 	
 	if (countHeaps < commSize) {
-		unsigned long long left = (length * inverseRank) / commSize;
+		unsigned long long left = (length * commRank) / commSize;
 		borders |= left << 32;
-		borders |= (length * (inverseRank + 1)) / commSize;
+		borders |= (length * (commRank + 1)) / commSize;
 		//printf("rank = %d; left = %lu, right = %lu\n", commRank, LEFT_BORDER(borders), RIGHT_BORDER(borders));
 		return borders;
 	}
 
-	int leftHeap = (countHeaps * inverseRank) / commSize,
-		rightHeap = (countHeaps * (inverseRank + 1)) / commSize;
+	int leftHeap = (countHeaps * commRank) / commSize,
+		rightHeap = (countHeaps * (commRank + 1)) / commSize;
 
 	unsigned long long left = getIndexBorderFromHeap (leftHeap, length);
 	//printf("left = %lu\n", left);
@@ -104,19 +103,20 @@ unsigned long long distributionBorders (int length, int commRank) {
 
 void mpz_set_ull(mpz_t n, unsigned long long ull)
 {
-    mpz_set_ui(n, (unsigned int)(ull >> 32));
+	mpz_set_ui(n, (unsigned int)(ull >> 32));
 	mpz_mul_2exp(n, n, 32);
 	mpz_add_ui(n, n, (unsigned int)ull);
 }
 
 void countE (int argc, char *argv[], mpf_t result) {
-    int commRank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &commRank);
+	int commRank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &commRank);
 	int commSize;
-    MPI_Comm_size(MPI_COMM_WORLD, &commSize);
+	MPI_Comm_size(MPI_COMM_WORLD, &commSize);
 	
 	long long int precision = atoll(argv[1]);
-	unsigned long long borders = distributionBorders(countBorder(precision), commRank);
+	int length = countBorder(precision);
+	unsigned long long borders = distributionBorders(length, commRank);
 
 	mpz_t sum, prod;
 	mpz_init(sum);
@@ -131,34 +131,40 @@ void countE (int argc, char *argv[], mpf_t result) {
 	
 	mpz_t fact; mpz_init(fact);
 
-	if (commRank != commSize - 1) {
+	if (commRank) {
 		size_t szProd = mpz_sizeinbase(prod, 10);
-
-		char *buf = (char *)malloc(szProd);
-		if (!buf) return;
+		
+		char *buf;// = (char *)calloc(szProd, sizeof(char));
+		MPI_Alloc_mem(szProd, MPI_INFO_NULL, &buf); 
+		if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
 
 		gmp_sprintf (buf, "%Zd", prod);
-		for(int i = commRank + 1; i < commSize; ++i) {
+		for(int i = commRank - 1; i >= 0; --i) {
 			MPI_Send(&szProd,  1,  MPI_INT,  i, 0, MPI_COMM_WORLD);
 			MPI_Send(buf, szProd, MPI_CHAR, i, 0, MPI_COMM_WORLD);
 		}
-		free(buf);
+		MPI_Free_mem(buf);
+		//free(buf);
 	}
 	else {
 		mpz_add(fact, fact, prod);
 	}
 
-	for(int i = 0; i < commRank; ++i) {
+	for(int i = commRank + 1; i < commSize; ++i) {
 		int szProd;
 		MPI_Status status;
 		MPI_Recv(&szProd,  1,  MPI_INT, i, 0, MPI_COMM_WORLD, &status);
-		char *buf = (char *)malloc(szProd);
+		char *buf;// = (char *)calloc(szProd, sizeof(char));
+		MPI_Alloc_mem(szProd, MPI_INFO_NULL, &buf);
+		if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
 
 		MPI_Recv(buf, szProd, MPI_CHAR, i, 0, MPI_COMM_WORLD, &status);
 		gmp_sscanf(buf, "%Zd", &prod);
-		free(buf);
+		
+		MPI_Free_mem(buf);
+		//free(buf);
 		mpz_mul(sum, sum, prod);
-		if (commRank == commSize - 1) mpz_mul(fact, fact, prod);
+		if (!commRank) mpz_mul(fact, fact, prod);
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -168,13 +174,18 @@ void countE (int argc, char *argv[], mpf_t result) {
 	if (commRank) {
 		size_t szSum = mpz_sizeinbase(sum, 10);
 
-		char *buf = (char *)malloc(szSum);
+		char *buf; // = (char *)calloc(szSum, sizeof(char));
+		MPI_Alloc_mem(szSum, MPI_INFO_NULL, &buf);
+
+		if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
+		
 		gmp_sprintf (buf, "%Zd", sum);
 
 		MPI_Send(&szSum,  1,  MPI_INT,  0, 0, MPI_COMM_WORLD);
 		MPI_Send(buf, szSum, MPI_CHAR,  0, 0, MPI_COMM_WORLD);
 
-		free(buf);
+		MPI_Free_mem(buf);
+		//free(buf);
 	}
 	else {
 		for(int i = 1; i < commSize; ++i) {
@@ -182,52 +193,34 @@ void countE (int argc, char *argv[], mpf_t result) {
 			MPI_Status status;
 
 			MPI_Recv(&szSum,  1,  MPI_INT, i, 0, MPI_COMM_WORLD, &status);
-			char *buf = (char *)malloc(szSum);
-
+			char *buf; // = (char *)calloc(szSum, sizeof(char));
+			MPI_Alloc_mem(szSum, MPI_INFO_NULL, &buf);
+			if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
+			
 			MPI_Recv(buf, szSum, MPI_CHAR, i, 0, MPI_COMM_WORLD, &status);
 			gmp_sscanf(buf, "%Zd", &prod);
-			free(buf);
+			MPI_Free_mem(buf);
+			//free(buf);
 			mpz_add(sum, sum, prod);
 		}
 	}
 	//gmp_printf("rank %d; sum = %Zd\n", commRank, sum);
 	
-	if (commRank == commSize - 1) {
-		int szFact = mpz_sizeinbase(fact, 10);
-		MPI_Status status;
-		MPI_Send(&szFact,  1,  MPI_INT, 0, 0, MPI_COMM_WORLD);
-		char *buf = (char *)malloc(szFact);
-		gmp_sprintf(buf, "%Zd", fact);
-
-		MPI_Send(buf, szFact, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
-		free(buf);
-	}
-
 	if (!commRank) {
-		int szProd;
-		MPI_Status status;
-		MPI_Recv(&szProd,  1,  MPI_INT, commSize - 1, 0, MPI_COMM_WORLD, &status);
-		char *buf = (char *)malloc(szProd);
-
-		MPI_Recv(buf, szProd, MPI_CHAR, commSize - 1, 0, MPI_COMM_WORLD, &status);
-		
-		gmp_sscanf(buf, "%Zd", &prod);
 		mpf_t factorial; mpf_init(factorial);
-		mpf_set_prec(factorial, 10000);
-		mpf_set_z(factorial, prod);
+		mpf_set_prec(factorial, 8 * precision);
+		mpf_set_z(factorial, fact);
 
-		free(buf);
-		
 		//gmp_printf("rank = %d, sum = %Zd\n fact = %Ff\n", commRank, sum, factorial);
-	
+
 		mpz_add_ui(sum, sum, 1);
+		mpf_set_prec(result, 8 * precision);
 		mpf_set_z(result, sum);
-		mpf_set_prec(result, 10000);
 
 		//gmp_printf("rank = %d, sum = %Zd\n fact = %Ff\n", commRank, sum, factorial);
-		
+
 		mpf_div (result, result, factorial);
 
-		gmp_printf("ans = %.50Ff\n", result);
+		// gmp_printf("ans = %.571Ff\n", result);
 	}
 }
