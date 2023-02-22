@@ -123,8 +123,24 @@ void countE (int argc, char *argv[], mpf_t result) {
 	mpz_init_set_ui (prod, 1);
 
 	for(unsigned i = RIGHT_BORDER(borders), end = LEFT_BORDER(borders); i > end; --i) {
+		#ifdef STUPID
 		mpz_mul_ui (prod, prod, i);
 		mpz_add (sum, sum, prod);
+		#else
+		unsigned long long tmpProd = 1, tmpSum = 0;
+		while (i > end && ULLONG_MAX / i > tmpProd) {
+			tmpProd *= i--;
+			tmpSum += tmpProd;
+		}
+		++i;
+		
+		mpz_t longTmpSum, longTmpProd; mpz_init(longTmpSum); mpz_init(longTmpProd);
+		mpz_set_ull(longTmpSum, tmpSum);
+		mpz_set_ull(longTmpProd, tmpProd);
+
+		mpz_addmul(sum, prod, longTmpSum);
+		mpz_mul(prod, prod, longTmpProd);
+		#endif
 	}
 
 	//gmp_printf("rank %d; prod = %Zd; sum = %Zd\n", commRank, prod, sum);
