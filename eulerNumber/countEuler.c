@@ -98,7 +98,7 @@ unsigned long long distributionBorders(int length, int commRank) {
 	// printf("left = %lu\n", left);
 	borders |= left << 32;
 	borders |= getIndexBorderFromHeap(rightHeap, length);
-	printf("rank = %d; left = %lu, right = %lu\n", commRank, LEFT_BORDER(borders), RIGHT_BORDER(borders));
+	// printf("rank = %d; left = %lu, right = %lu\n", commRank, LEFT_BORDER(borders), RIGHT_BORDER(borders));
 
 	return borders;
 }
@@ -146,17 +146,17 @@ void countE(int argc, char *argv[], mpf_t result) {
 		mpz_clears(longTmpSum, longTmpProd, NULL);
 #endif
 	}
-
+	MPI_Barrier(MPI_COMM_WORLD);
 	// gmp_printf("rank %d; prod = %Zd; sum = %Zd\n", commRank, prod, sum);
 
 	mpz_t fact;
 	mpz_init(fact);
 
 	if (commRank) {
-		size_t szProd = mpz_sizeinbase(prod, 10);
+		size_t szProd = mpz_sizeinbase(prod, 10) + 1;
 
-		char *buf;	// = (char *)calloc(szProd, sizeof(char));
-		MPI_Alloc_mem(szProd, MPI_INFO_NULL, &buf);
+		char *buf = (char *)calloc(szProd, sizeof(char));
+		// MPI_Alloc_mem(szProd, MPI_INFO_NULL, &buf);
 		if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
 
 		gmp_sprintf(buf, "%Zd", prod);
@@ -164,8 +164,8 @@ void countE(int argc, char *argv[], mpf_t result) {
 			MPI_Send(&szProd, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
 			MPI_Send(buf, szProd, MPI_CHAR, i, 0, MPI_COMM_WORLD);
 		}
-		MPI_Free_mem(buf);
-		// free(buf);
+		// MPI_Free_mem(buf);
+		free(buf);
 	} else {
 		mpz_add(fact, fact, prod);
 	}
@@ -174,28 +174,28 @@ void countE(int argc, char *argv[], mpf_t result) {
 		int szProd;
 		MPI_Status status;
 		MPI_Recv(&szProd, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &status);
-		char *buf;	// = (char *)calloc(szProd, sizeof(char));
-		MPI_Alloc_mem(szProd, MPI_INFO_NULL, &buf);
+		char *buf = (char *)calloc(szProd, sizeof(char));
+		// MPI_Alloc_mem(szProd, MPI_INFO_NULL, &buf);
 		if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
 
 		MPI_Recv(buf, szProd, MPI_CHAR, i, 0, MPI_COMM_WORLD, &status);
 		gmp_sscanf(buf, "%Zd", &prod);
 
-		MPI_Free_mem(buf);
-		// free(buf);
+		// MPI_Free_mem(buf);
+		free(buf);
 		mpz_mul(sum, sum, prod);
 		if (!commRank) mpz_mul(fact, fact, prod);
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	// gmp_printf("rank %d; fact = %Zd\n", commRank, fact);
+	// gmp_printf("rank %d; fact = %Zd\n sum = %Zd\n", commRank, fact, sum);
 
 	if (commRank) {
-		size_t szSum = mpz_sizeinbase(sum, 10);
+		size_t szSum = mpz_sizeinbase(sum, 10) + 1;
 
-		char *buf;	// = (char *)calloc(szSum, sizeof(char));
-		MPI_Alloc_mem(szSum, MPI_INFO_NULL, &buf);
+		char *buf = (char *)calloc(szSum, sizeof(char));
+		// MPI_Alloc_mem(szSum, MPI_INFO_NULL, &buf);
 
 		if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
 
@@ -204,22 +204,22 @@ void countE(int argc, char *argv[], mpf_t result) {
 		MPI_Send(&szSum, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
 		MPI_Send(buf, szSum, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
 
-		MPI_Free_mem(buf);
-		// free(buf);
+		// MPI_Free_mem(buf);
+		free(buf);
 	} else {
 		for (int i = 1; i < commSize; ++i) {
 			int szSum;
 			MPI_Status status;
 
 			MPI_Recv(&szSum, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &status);
-			char *buf;	// = (char *)calloc(szSum, sizeof(char));
-			MPI_Alloc_mem(szSum, MPI_INFO_NULL, &buf);
+			char *buf = (char *)calloc(szSum, sizeof(char));
+			// MPI_Alloc_mem(szSum, MPI_INFO_NULL, &buf);
 			if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
 
 			MPI_Recv(buf, szSum, MPI_CHAR, i, 0, MPI_COMM_WORLD, &status);
 			gmp_sscanf(buf, "%Zd", &prod);
-			MPI_Free_mem(buf);
-			// free(buf);
+			// MPI_Free_mem(buf);
+			free(buf);
 			mpz_add(sum, sum, prod);
 		}
 	}
