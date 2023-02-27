@@ -146,7 +146,6 @@ void countE(int argc, char *argv[], mpf_t result) {
 		mpz_clears(longTmpSum, longTmpProd, NULL);
 #endif
 	}
-	MPI_Barrier(MPI_COMM_WORLD);
 	// gmp_printf("rank %d; prod = %Zd; sum = %Zd\n", commRank, prod, sum);
 
 	mpz_t fact;
@@ -156,7 +155,6 @@ void countE(int argc, char *argv[], mpf_t result) {
 		size_t szProd = mpz_sizeinbase(prod, 10) + 1;
 
 		char *buf = (char *)calloc(szProd, sizeof(char));
-		// MPI_Alloc_mem(szProd, MPI_INFO_NULL, &buf);
 		if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
 
 		gmp_sprintf(buf, "%Zd", prod);
@@ -164,7 +162,6 @@ void countE(int argc, char *argv[], mpf_t result) {
 			MPI_Send(&szProd, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
 			MPI_Send(buf, szProd, MPI_CHAR, i, 0, MPI_COMM_WORLD);
 		}
-		// MPI_Free_mem(buf);
 		free(buf);
 	} else {
 		mpz_add(fact, fact, prod);
@@ -175,19 +172,15 @@ void countE(int argc, char *argv[], mpf_t result) {
 		MPI_Status status;
 		MPI_Recv(&szProd, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &status);
 		char *buf = (char *)calloc(szProd, sizeof(char));
-		// MPI_Alloc_mem(szProd, MPI_INFO_NULL, &buf);
 		if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
 
 		MPI_Recv(buf, szProd, MPI_CHAR, i, 0, MPI_COMM_WORLD, &status);
 		gmp_sscanf(buf, "%Zd", &prod);
 
-		// MPI_Free_mem(buf);
 		free(buf);
 		mpz_mul(sum, sum, prod);
 		if (!commRank) mpz_mul(fact, fact, prod);
 	}
-
-	MPI_Barrier(MPI_COMM_WORLD);
 
 	// gmp_printf("rank %d; fact = %Zd\n sum = %Zd\n", commRank, fact, sum);
 
@@ -195,7 +188,6 @@ void countE(int argc, char *argv[], mpf_t result) {
 		size_t szSum = mpz_sizeinbase(sum, 10) + 1;
 
 		char *buf = (char *)calloc(szSum, sizeof(char));
-		// MPI_Alloc_mem(szSum, MPI_INFO_NULL, &buf);
 
 		if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
 
@@ -204,7 +196,6 @@ void countE(int argc, char *argv[], mpf_t result) {
 		MPI_Send(&szSum, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
 		MPI_Send(buf, szSum, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
 
-		// MPI_Free_mem(buf);
 		free(buf);
 	} else {
 		for (int i = 1; i < commSize; ++i) {
@@ -213,12 +204,10 @@ void countE(int argc, char *argv[], mpf_t result) {
 
 			MPI_Recv(&szSum, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &status);
 			char *buf = (char *)calloc(szSum, sizeof(char));
-			// MPI_Alloc_mem(szSum, MPI_INFO_NULL, &buf);
 			if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
 
 			MPI_Recv(buf, szSum, MPI_CHAR, i, 0, MPI_COMM_WORLD, &status);
 			gmp_sscanf(buf, "%Zd", &prod);
-			// MPI_Free_mem(buf);
 			free(buf);
 			mpz_add(sum, sum, prod);
 		}
@@ -237,11 +226,8 @@ void countE(int argc, char *argv[], mpf_t result) {
 		mpf_set_prec(result, 8 * precision);
 		mpf_set_z(result, sum);
 
-		// gmp_printf("rank = %d, sum = %Zd\n fact = %Ff\n", commRank, sum, factorial);
-
 		mpf_div(result, result, factorial);
 
-		// gmp_printf("ans = %.571Ff\n", result);
 		mpf_clear(factorial);
 	}
 	mpz_clears(sum, prod, fact, NULL);
