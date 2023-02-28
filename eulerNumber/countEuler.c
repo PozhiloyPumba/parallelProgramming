@@ -14,30 +14,7 @@ int countBorder(long long int numOfDigits) {
 		border -= ((logBorder - 1) * border + 1 / 2 * logBorder + freeCoef) / (logBorder + 1 / 2 / border);
 	}
 
-	// printf("count = %lg\n", border);
-
 	return border + 3;	// +3 for solution rounding problem
-}
-
-void helper(int border) {
-	int heapCounter = 0;
-	int heapSize = 1000;
-
-	for (int i = 1; i < border;) {
-		unsigned long long tmp = 1;
-		int curHeapSize = 0;
-		while (ULLONG_MAX / i > tmp) {
-			++curHeapSize;
-			tmp *= i++;
-		}
-		if (curHeapSize < heapSize) {
-			heapSize = curHeapSize;
-			printf("heapSize = %d on %d, heap count = %d\n", curHeapSize, i - 1 - curHeapSize, heapCounter);
-		}
-		++heapCounter;
-		// printf("heap number = %d, border = %d\n", ++heapCounter, i);
-	}
-	printf("heap count = %d\n", heapCounter);
 }
 
 int heapCounts(int length) {
@@ -65,7 +42,6 @@ unsigned getIndexBorderFromHeap(int heapNumber, int length) {
 
 	while (numOfBorder < delimeterSizeMinusOne && heapCounts[++numOfBorder] < heapNumber)
 		;
-	// printf("borderindex = %d\n", numOfBorder);
 	int leftNumBorder = numOfBorder ? numOfBorder - 1 : 0;
 	unsigned num = (unsigned)(borders[numOfBorder] + (heapNumber - heapCounts[numOfBorder]) * heapSizes[leftNumBorder]);
 
@@ -80,14 +56,12 @@ unsigned long long distributionBorders(int length, int commRank) {
 	MPI_Comm_size(MPI_COMM_WORLD, &commSize);
 
 	int countHeaps = heapCounts(length);
-	// printf("heaps = %d, length = %d\n", countHeaps, length);
 	unsigned long long borders = 0;
 
 	if (countHeaps < commSize) {
 		unsigned long long left = (length * commRank) / commSize;
 		borders |= left << 32;
 		borders |= (length * (commRank + 1)) / commSize;
-		// printf("rank = %d; left = %lu, right = %lu\n", commRank, LEFT_BORDER(borders), RIGHT_BORDER(borders));
 		return borders;
 	}
 
@@ -95,12 +69,26 @@ unsigned long long distributionBorders(int length, int commRank) {
 		rightHeap = (countHeaps * (commRank + 1)) / commSize;
 
 	unsigned long long left = getIndexBorderFromHeap(leftHeap, length);
-	// printf("left = %lu\n", left);
 	borders |= left << 32;
 	borders |= getIndexBorderFromHeap(rightHeap, length);
-	// printf("rank = %d; left = %lu, right = %lu\n", commRank, LEFT_BORDER(borders), RIGHT_BORDER(borders));
 
 	return borders;
+}
+
+int distributionHeapBorders(int length, int commRank) {
+	int commSize;
+	MPI_Comm_size(MPI_COMM_WORLD, &commSize);
+
+	int countHeaps = heapCounts(length);
+	unsigned long long borders = 0;
+
+	if (countHeaps < commSize)
+		return 1;
+
+	int leftHeap = (countHeaps * commRank) / commSize,
+		rightHeap = (countHeaps * (commRank + 1)) / commSize;
+
+	return rightHeap - leftHeap ? rightHeap - leftHeap : 1;
 }
 
 void mpz_set_ull(mpz_t n, unsigned long long ull) {
@@ -117,36 +105,46 @@ void countE(int argc, char *argv[], mpf_t result) {
 
 	long long int precision = atoll(argv[1]);
 	int length = countBorder(precision);
+	int lenHeap = distributionHeapBorders(length, commRank);	
 	unsigned long long borders = distributionBorders(length, commRank);
 
 	mpz_t sum, prod;
 	mpz_init(sum);
 	mpz_init_set_ui(prod, 1);
 
+	mpz_t *sums = malloc(sizeof(mpz_t) * lenHeap);
+	mpz_t *prods = malloc(sizeof(mpz_t) * lenHeap);
+
+	int jLen = 0;
 	for (unsigned i = RIGHT_BORDER(borders), end = LEFT_BORDER(borders); i > end;) {
-#ifdef STUPID
-		mpz_mul_ui(prod, prod, i);
-		mpz_add(sum, sum, prod);
-		--i;
-#else
 		unsigned long long tmpProd = 1, tmpSum = 0;
 		while (i > end && ULLONG_MAX / i > tmpProd) {
 			tmpProd *= i--;
 			tmpSum += tmpProd;
 		}
 
-		mpz_t longTmpSum, longTmpProd;
-		mpz_inits(longTmpSum, longTmpProd, NULL);
-		mpz_set_ull(longTmpSum, tmpSum);
-		mpz_set_ull(longTmpProd, tmpProd);
-
-		mpz_addmul(sum, prod, longTmpSum);
-		mpz_mul(prod, prod, longTmpProd);
-
-		mpz_clears(longTmpSum, longTmpProd, NULL);
-#endif
+		mpz_inits(sums[jLen], prods[jLen], NULL);
+		mpz_set_ull(sums[jLen], tmpSum);
+		mpz_set_ull(prods[jLen], tmpProd);
+		++jLen;
 	}
-	// gmp_printf("rank %d; prod = %Zd; sum = %Zd\n", commRank, prod, sum);
+
+	lenHeap = jLen;
+	for (unsigned i = 2; i < 2 * lenHeap; i *= 2) {
+		unsigned stepToNeighbour = i / 2;
+		for (unsigned j = 0; j + stepToNeighbour < lenHeap; j += i) {
+			mpz_addmul(sums[j], prods[j], sums[j + stepToNeighbour]);
+			mpz_mul(prods[j], prods[j], prods[j + stepToNeighbour]);
+		}
+	}
+	if (mpz_sgn (prods[0]))
+		mpz_swap(prod, prods[0]);
+	mpz_swap(sum, sums[0]);
+	for (int i = 0; i < lenHeap; ++i)
+		mpz_clears(sums[i], prods[i], NULL);
+
+	free(sums);
+	free(prods);
 
 	mpz_t fact;
 	mpz_init(fact);
@@ -182,8 +180,6 @@ void countE(int argc, char *argv[], mpf_t result) {
 		if (!commRank) mpz_mul(fact, fact, prod);
 	}
 
-	// gmp_printf("rank %d; fact = %Zd\n sum = %Zd\n", commRank, fact, sum);
-
 	if (commRank) {
 		size_t szSum = mpz_sizeinbase(sum, 10) + 1;
 
@@ -212,15 +208,12 @@ void countE(int argc, char *argv[], mpf_t result) {
 			mpz_add(sum, sum, prod);
 		}
 	}
-	// gmp_printf("rank %d; sum = %Zd\n", commRank, sum);
 
 	if (!commRank) {
 		mpf_t factorial;
 		mpf_init(factorial);
 		mpf_set_prec(factorial, 8 * precision);
 		mpf_set_z(factorial, fact);
-
-		// gmp_printf("rank = %d, sum = %Zd\n fact = %Ff\n", commRank, sum, factorial);
 
 		mpz_add_ui(sum, sum, 1);
 		mpf_set_prec(result, 8 * precision);
