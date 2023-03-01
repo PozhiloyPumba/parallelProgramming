@@ -111,7 +111,7 @@ void countE(int argc, char *argv[], mpf_t result) {
 	mpz_t sum, prod;
 	mpz_init(sum);
 	mpz_init_set_ui(prod, 1);
-
+#ifdef ADDITIONAL_MEMORY
 	mpz_t *sums = malloc(sizeof(mpz_t) * lenHeap);
 	mpz_t *prods = malloc(sizeof(mpz_t) * lenHeap);
 
@@ -145,7 +145,23 @@ void countE(int argc, char *argv[], mpf_t result) {
 
 	free(sums);
 	free(prods);
+#else
+	for(unsigned i = RIGHT_BORDER(borders), end = LEFT_BORDER(borders); i > end; --i) {
+		unsigned long long tmpProd = 1, tmpSum = 0;
+		while (i > end && ULLONG_MAX / i > tmpProd) {
+			tmpProd *= i--;
+			tmpSum += tmpProd;
+		}
+		++i;
 
+		mpz_t longTmpSum, longTmpProd; mpz_init(longTmpSum); mpz_init(longTmpProd);
+		mpz_set_ull(longTmpSum, tmpSum);
+		mpz_set_ull(longTmpProd, tmpProd);
+
+		mpz_addmul(sum, prod, longTmpSum);
+		mpz_mul(prod, prod, longTmpProd);
+	}
+#endif
 	mpz_t fact;
 	mpz_init(fact);
 
