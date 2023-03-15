@@ -105,7 +105,7 @@ void countE(int argc, char *argv[], mpf_t result) {
 
 	long long int precision = atoll(argv[1]);
 	int length = countBorder(precision);
-	int lenHeap = distributionHeapBorders(length, commRank);	
+	int lenHeap = distributionHeapBorders(length, commRank);
 	unsigned long long borders = distributionBorders(length, commRank);
 
 	mpz_t sum, prod;
@@ -137,7 +137,7 @@ void countE(int argc, char *argv[], mpf_t result) {
 			mpz_mul(prods[j], prods[j], prods[j + stepToNeighbour]);
 		}
 	}
-	if (mpz_sgn (prods[0]))
+	if (mpz_sgn(prods[0]))
 		mpz_swap(prod, prods[0]);
 	mpz_swap(sum, sums[0]);
 	for (int i = 0; i < lenHeap; ++i)
@@ -146,7 +146,7 @@ void countE(int argc, char *argv[], mpf_t result) {
 	free(sums);
 	free(prods);
 #else
-	for(unsigned i = RIGHT_BORDER(borders), end = LEFT_BORDER(borders); i > end; --i) {
+	for (unsigned i = RIGHT_BORDER(borders), end = LEFT_BORDER(borders); i > end; --i) {
 		unsigned long long tmpProd = 1, tmpSum = 0;
 		while (i > end && ULLONG_MAX / i > tmpProd) {
 			tmpProd *= i--;
@@ -154,7 +154,9 @@ void countE(int argc, char *argv[], mpf_t result) {
 		}
 		++i;
 
-		mpz_t longTmpSum, longTmpProd; mpz_init(longTmpSum); mpz_init(longTmpProd);
+		mpz_t longTmpSum, longTmpProd;
+		mpz_init(longTmpSum);
+		mpz_init(longTmpProd);
 		mpz_set_ull(longTmpSum, tmpSum);
 		mpz_set_ull(longTmpProd, tmpProd);
 
@@ -173,7 +175,6 @@ void countE(int argc, char *argv[], mpf_t result) {
 
 		gmp_sprintf(buf, "%Zd", prod);
 		for (int i = commRank - 1; i >= 0; --i) {
-			MPI_Send(&szProd, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
 			MPI_Send(buf, szProd, MPI_CHAR, i, 0, MPI_COMM_WORLD);
 		}
 		free(buf);
@@ -184,7 +185,10 @@ void countE(int argc, char *argv[], mpf_t result) {
 	for (int i = commRank + 1; i < commSize; ++i) {
 		int szProd;
 		MPI_Status status;
-		MPI_Recv(&szProd, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &status);
+
+		MPI_Probe(i, 0, MPI_COMM_WORLD, &status);
+		MPI_Get_count(&status, MPI_CHAR, &szProd);
+
 		char *buf = (char *)calloc(szProd, sizeof(char));
 		if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
 
@@ -205,7 +209,6 @@ void countE(int argc, char *argv[], mpf_t result) {
 
 		gmp_sprintf(buf, "%Zd", sum);
 
-		MPI_Send(&szSum, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
 		MPI_Send(buf, szSum, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
 
 		free(buf);
@@ -214,7 +217,9 @@ void countE(int argc, char *argv[], mpf_t result) {
 			int szSum;
 			MPI_Status status;
 
-			MPI_Recv(&szSum, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &status);
+			MPI_Probe(i, 0, MPI_COMM_WORLD, &status);
+			MPI_Get_count(&status, MPI_CHAR, &szSum);
+
 			char *buf = (char *)calloc(szSum, sizeof(char));
 			if (!buf) MPI_Abort(MPI_COMM_WORLD, 911);
 
