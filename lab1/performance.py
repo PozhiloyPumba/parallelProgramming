@@ -2,54 +2,24 @@ import sys, os, getopt, subprocess
 import matplotlib.pyplot as plt
 import numpy as np
 
-def run_sequential(c_file, t_size, x_size, exe_file = 'sequential.out'):
-    command_gcc = 'gcc ' + c_file + f' -DQUIET -DK={t_size} ' + f' -DM={x_size} ' + '-O3 -lm -o ' + exe_file
-    if os.system(command_gcc) == 0:
-        os.system("echo Running " + exe_file)
-        os.system("echo -------------------")
-        return subprocess.getoutput(f"time ./{exe_file}")
-    raise RuntimeError(f"don't compile {exe_file} fix it bro((")
+num = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144]
+seq_time = [0.081, 0.062, 0.076, 0.067, 0.061, 0.111, 0.127, 0.207, 0.451, 0.935, 2.106, 4.147, 8.458, 16.989]
+par_time = [0.067, 0.069, 0.074, 0.084, 0.087, 0.074, 0.100, 0.140, 0.258, 0.473, 1.150, 2.127, 4.417, 8.756]
 
-def run_parallel(c_file, t_size, x_size, num_proc, exe_file = 'parallel.out'):
-    command_mpicc = 'mpicc ' + c_file + f' -DQUIET -DK={t_size} ' + f' -DM={x_size} ' + '-O3 -lm -o ' + exe_file
-    if os.system(command_mpicc) == 0:
-        os.system("echo Running " + exe_file)
-        os.system("echo -------------------")
-        return subprocess.getoutput(f"time mpirun -n {num_proc} ./{exe_file}")
-    raise RuntimeError(f"don't compile {exe_file} fix it bro((")
-
-def gettime(x):
-    m,s = map(float,x[:-1].split('m'))
-    return 60 * m + s
-
-try:
-    num_proc = 4
-    num = [2]
-    seq_time = []
-    par_time = []
-    speedup = []
-    for i in range(12):
-        out = run_sequential('sequential.c', num[-1], 1001).split()
-        #print(num[-1], gettime(out[out.index('real') + 1]))
-        seq_time.append(gettime(out[out.index('real') + 1]))
-        out = run_parallel('parallel.c', num[-1], 1001, num_proc).split()
-        #print(num[-1], gettime(out[out.index('real') + 1]))
-        par_time.append(gettime(out[out.index('real') + 1]))
-        speedup.append(seq_time[-1] / par_time[-1])
-        #print(num[-1])
-        num.append(num[-1] * 2)
-except Exception as se:
-    print(str(se))
-
-num.pop(-1)
+speedup = list(np.array(seq_time)/np.array(par_time) / 4)
 
 fig, ax = plt.subplots()
 
-ax.plot(num, seq_time, linewidth=2.0, color='r')
-ax.plot(num, par_time, linewidth=2.0, color='b')
-#ax.set_xscale('log')
+line, = ax.plot(num, speedup, linewidth=2.0, color='r')
+
+#line, = ax.plot(num, par_time, linewidth=2.0, color='b')
+#line.set_label('Parallel')
+#ax.legend()
+
+ax.set_xlabel('num')
+ax.set_ylabel('efficiency')
 
 #ax.plot(num, speedup, linewidth=2.0, color='r')
-ax.set_xscale('log')
+ax.set_xscale('linear')
 
 plt.show()
