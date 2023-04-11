@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
 
 	double *answer;
 	if (!rank) {
-		answer = (double *)calloc(K * M, sizeof(double));
+		answer = (double *)calloc(K * (end - begin), sizeof(double));
 
 		for (int i = begin; i < end; ++i)
 			answer[K * i] = phi(X_VALUE(i));
@@ -57,20 +57,23 @@ int main(int argc, char *argv[]) {
 		rcounts[i] = K * (locEnd - locBegin);
 		displs[i] = (i == 0) ? 0 : displs[i - 1] + rcounts[i - 1];
 	}
+	
+	double *result = (double *)calloc(K * M, sizeof(double));
 
-	MPI_Gatherv(answer + K * (!!rank), rcounts[rank], MPI_DOUBLE, answer, rcounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Gatherv(answer + K * (!!rank), rcounts[rank], MPI_DOUBLE, result, rcounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 #ifndef QUIET
 	if (!rank) {
 		printf("%lf %d %lf %d\n", T, K, X, M);
 		for (int i = 0; i < K; ++i) {
 			for (int j = 0; j < M; ++j) {
-				printf("%lf ", answer[j * K + i]);
+				printf("%lf ", result[j * K + i]);
 			}
 			printf("\n");
 		}
 	}
 #endif
 	free(answer);
+	free(result);
 
 	MPI_Finalize();
 	return 0;

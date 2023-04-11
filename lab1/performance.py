@@ -28,7 +28,7 @@ try:
     seq_time = []
     par_time = []
     speedup = []
-    for i in range(18):
+    for i in range(12):
         out = run_sequential('sequential.c', num[-1], 1001).split()
         #print(num[-1], gettime(out[out.index('real') + 1]))
         seq_time.append(gettime(out[out.index('real') + 1]))
