@@ -1,9 +1,17 @@
+#ifndef PARAMS_H
+#define PARAMS_H
+
 #include <math.h>
 
 const double a = 2.0;
 const double T = 1.0, X = 1.0;
 
-const int K = 201, M = 201;
+#ifndef K
+#define K 1001
+#endif
+#ifndef M
+#define M 1001
+#endif
 
 const double tau = T / (K - 1), h = X / (M - 1);
 
@@ -21,3 +29,4 @@ double psi(double t) {
 double f(double x, double t) {
 	return x + t;
 }
+#endif

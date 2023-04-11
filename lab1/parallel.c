@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	MPI_Gatherv(answer + K * (!!rank), rcounts[rank], MPI_DOUBLE, answer, rcounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
+#ifndef QUIET
 	if (!rank) {
 		printf("%lf %d %lf %d\n", T, K, X, M);
 		for (int i = 0; i < K; ++i) {
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 			printf("\n");
 		}
 	}
-
+#endif
 	free(answer);
 
 	MPI_Finalize();
