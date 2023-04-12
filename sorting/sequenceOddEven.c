@@ -1,15 +1,22 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
-
-#define MAX 1000000
+#include "oddEvenBase.h"
 
 int main (int argc, char *argv[]) {
-	srand(time(NULL));
-    int size = atoi(argv[1]);
-    int arr = (int *)calloc(, sizeof(int));
- 
-    for (int i = 0; i < size; ++i) {
-        arr[i] = rand() % MAX;
+	if (argc != 2) {
+		printf("Hey, Buddy, you choose the wrong door, the parallel club has two args of command line\n");
+		return 0;
 	}
+
+    int size = atoi(argv[1]);
+    int *arr = (int *)calloc(size, sizeof(int));
+	fillRand(arr, size);
+
+	oddEven(arr, size);
+	
+	printf("%d\n", verify(arr, size));
+
+	free(arr);
+
+	return 0;
 }
