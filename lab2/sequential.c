@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <math.h>
+#include "params.h"
 
 int size = 0;
 
@@ -22,10 +23,6 @@ int stackIsEmpty () {
 void fillData (struct data *inout, double left, double right, double fLeft, double fRight, double s) { 
 	struct data tmp = {left, right, fLeft, fRight, s};
 	*inout = tmp;
-}
-
-double func (double x) {
-	return sin(1/x);
 }
 
 double integrate(double (*f)(double), double left, double right, double epsilon) {
@@ -66,6 +63,6 @@ double integrate(double (*f)(double), double left, double right, double epsilon)
 }
 
 int main () {
-	printf("%lf\n", integrate(func, 0.01, 5, 0.0001));
+	printf("%lf\n", integrate(func, A, B, EPSILON));
 	return 0;
 }
