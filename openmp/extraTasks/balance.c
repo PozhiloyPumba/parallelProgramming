@@ -6,7 +6,7 @@
 
 // #define SCHED_STATIC
 // #define SCHED_DYNAMIC
-#define SCHED_GUIDED
+// #define SCHED_GUIDED
 
 #define CHUNK_SIZE 4
 

@@ -10,7 +10,7 @@ if (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 endif()
 
-set(EXECS nested balance)
+set(EXECS nested balance copypriv copyin)
 
 foreach(EXEC IN LISTS EXECS)
     add_executable(${EXEC} ${EXEC}.c)
