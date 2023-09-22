@@ -20,6 +20,6 @@ int main () {
     exec_time += omp_get_wtime();
 
     std::cout << exec_time << std::endl;
-    std::cout << res << std::endl;
+    // std::cout << res << std::endl;
     return 0;
 }
