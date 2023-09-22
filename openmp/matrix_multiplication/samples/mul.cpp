@@ -1,7 +1,7 @@
 #include <omp.h>
 #include <matrix.hpp>
 
-using TypeMatrix = double;
+using TypeMatrix = float;
 
 int main () {
     int m, n;
@@ -13,16 +13,13 @@ int main () {
     matrix::Matrix<TypeMatrix> m2(m, n);
     std::cin >> m2;
     
-    double itime, ftime, exec_time;
-    itime = omp_get_wtime();
+    double exec_time = -omp_get_wtime();
 
     matrix::Matrix<TypeMatrix> res = m1*m2;
-    
-    ftime = omp_get_wtime();
 
-    exec_time = ftime - itime;
+    exec_time += omp_get_wtime();
 
     std::cout << exec_time << std::endl;
-    // std::cout << res << std::endl;
+    std::cout << res << std::endl;
     return 0;
 }
