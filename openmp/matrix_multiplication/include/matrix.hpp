@@ -9,9 +9,15 @@
 #include <iterator>
 #include <memory>
 #include <random>
+#include <experimental/simd>
 #include <omp.h>
 
+ 
+
 namespace matrix {
+    namespace stdx = std::experimental;
+    using floatv = stdx::native_simd<float>;
+
     const double EPSILON = 10E-15;
     const int maxCoefConst = 5;
 
@@ -279,7 +285,49 @@ namespace matrix {
                         }
                     }
                 }
+            #elif defined(BLOCK_PARALLEL_SIMD)
+            // block parallel SIMD variant
+            constexpr size_t block_size = 128; // < sqrt(L1_sz / 3)
+            T *otherArr = B.arr_;
+            floatv dest, src;
 
+            #pragma omp parallel for
+            for (int j = 0; j < other.nCols_; j += block_size)
+                #pragma omp parallel for
+                for (int k = 0; k < other.nRows_; k += block_size) {
+                    int size_jj = std::min(j + block_size, other.nCols_);
+                    int allignedSize = (size_jj) - size_jj % block_size;
+                    if (allignedSize == size_jj) {
+                        for (int i = 0; i < nRows_; ++i) {
+                            size_t row1 = i * nCols_;
+                            size_t tmp_row = i * temporary_m.nCols_;
+                            for (int kk = k, size_kk = std::min(k + block_size, other.nRows_); kk < size_kk; ++kk) {
+                                size_t row2 = kk * B.nCols_;
+                                T tmp = arr_[row1 + kk];
+                                floatv tmp_SIMD = tmp;
+                                for (int jj = j; jj < allignedSize; jj += std::size(tmp_SIMD)) {
+                                    src.copy_from(&otherArr[row2 + jj], stdx::element_aligned);
+                                    dest.copy_from(&tmpArr[tmp_row + jj], stdx::element_aligned);
+                                    dest += src*tmp_SIMD;
+                                    dest.copy_to(&tmpArr[tmp_row + jj], stdx::element_aligned);
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        for (int i = 0; i < nRows_; ++i) {
+                            size_t row1 = i * nCols_;
+                            size_t tmp_row = i * temporary_m.nCols_;
+                            for (int kk = k, size_kk = std::min(k + block_size, other.nRows_); kk < size_kk; ++kk) {
+                                size_t row2 = kk * B.nCols_;
+                                T tmp = arr_[row1 + kk];
+                                for (int jj = j; jj < size_jj; ++jj) {
+                                    tmpArr[tmp_row + jj] += tmp * otherArr[row2 + jj];
+                                }
+                            }
+                        }
+                    }
+                }
             #elif defined(TRANSPOSE_PARALLEL)
             // transpose parallel variant
 
