@@ -124,6 +124,7 @@ void mergeSort(std::vector<T> &src, int begin, int end, std::vector<T> &dest, in
 template <typename T>
 void sort(std::vector<T> &v) {
     std::vector<T> other(v.size());
+    omp_set_nested(1);
     mergeSort(v, 0, v.size(), other, 0, 0);
 
     std::swap(v, other);
